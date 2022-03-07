@@ -17,6 +17,7 @@ function App() {
   }
 
 /*
+
   async function fetchGreeting() {
     // Überprüfung ob Metamask installiert ist oder ob der User es verwendet
     const provider = new ethers.providers.Web3Provider(window.ethereum)
