@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ethers } from 'ethers'
 import './App.css';
+import logo from './abas-logo-rgb.png'
 import emailjs from 'emailjs-com'
 import Mailer from "./component/mailer"
 import Teilnehmen from './artifacts/contracts/AusschreibungKontrakte.sol/ausschreibung.json'
@@ -83,20 +84,37 @@ function preisHash() {
     let iterate = true;
     let i = 0;
     const daten = []
+    
     while (iterate) {
         
         try {
+          
           const data = await contract.getVal(i)
           const data1 = await contract.zieheArtikelName(i)
           const data2 = await contract.zieheMge(i)
           const data3 = await contract.zieheDauer(i)
-          daten.push(data, data1, data2, konvertierungDate(data3))
           
+          //daten.push(data, data1, data2, konvertierungDate(data3))
+          
+          var table = document.getElementById("tabelle");
+          var row = table.insertRow(1);
+          var cell1 = row.insertCell(0);
+          var cell2 = row.insertCell(1);
+          var cell3 = row.insertCell(2);
+          var cell4 = row.insertCell(3);
+          cell1.innerHTML = data;
+          cell2.innerHTML = data1;
+          cell3.innerHTML = data2;
+          cell4.innerHTML = konvertierungDate(data3);
+          
+          /*
           let list = document.getElementsByTagName("p");
           let tag = document.createElement("p");
           console.log('data: ', daten)
           tag.innerHTML = data+ "\t|\t" + data1+ "\t|\t" +data2+ "\t|\t" + konvertierungDate(data3);
           document.body.appendChild(tag); 
+          */
+          
         } catch (err) {
           console.log("Error: ", err)
           iterate = false;
@@ -157,8 +175,9 @@ function preisHash() {
     <div className="App">
       <header className="App-header">
   
+      <img src={logo} alt="Logo" />
+      <div id="felder">
       <h3>Ausschreibungsprozess starten</h3>
-      
         <input
           onChange={e => setAuschreibungsende(e.target.value)}
           placeholder="Auschreibungsdauer in Tage"
@@ -176,11 +195,11 @@ function preisHash() {
           />
         <input
           onChange={e => setEMail(e.target.value)}
-          placeholder="email"
+          placeholder="E-Mail"
           value={email}
           />
           <button onClick={ausschreibungErstellen}>Ausschreibung Erstellen </button>
-          
+         
       <h3>An Ausschreibung Teilnehmen</h3>
       
         <input
@@ -204,9 +223,18 @@ function preisHash() {
           />
     
         <button onClick={sendMail}>Ausschreibung Teilnehmen </button>
-      
+      </div>
          
       </header>
+      <table id="tabelle">
+          <tr>
+            <th>Smart Contract Adresse</th>
+            <th>Artikel</th>
+            <th>Menge</th>
+            <th>Ausschreibungsende</th>
+          </tr>
+        
+      </table>
     </div>
     
     
