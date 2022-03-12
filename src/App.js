@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { ethers } from 'ethers'
 import './App.css';
+import emailjs from 'emailjs-com'
+import Mailer from "./component/mailer"
 import Teilnehmen from './artifacts/contracts/AusschreibungKontrakte.sol/ausschreibung.json'
 import Ausschreibung from './artifacts/contracts/AusschreibungKontrakte.sol/AusschreibungsErstellung.json'
+import { sha256, sha224 } from 'js-sha256';
 import Greeter from './artifacts/contracts/Greeter.sol/Greeter.json'
 
 
@@ -10,52 +13,14 @@ function App() {
   const [ausschreibungsende, setAuschreibungsende] = useState ('')
   const [produktname, setProduktname] = useState ('')
   const [mge, setMenge] = useState ('')
+  const [mail, setMail] = useState('')
+  const [email, setEMail] = useState('')
   const [angeboteinreichen, setAngebot] = useState('')
   const [greeting, setGreetingValue] = useState()
   const [preis, setPreis] = useState('')
   const [ausschreibungsadresse, setAusschreibung] = useState('')
   const greeterAddress = "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c"
-  const ausAddress = "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
-
-
-/*
-
-  async function fetchGreeting() {
-    // Überprüfung ob Metamask installiert ist oder ob der User es verwendet
-    const provider = new ethers.providers.Web3Provider(window.ethereum)
-    const contract = new ethers.Contract(greeterAddress, Greeter.abi, provider)
-    try {
-      const data = await contract.greet()
-      console.log('data: ', data)
-      window.alert("Contract Adresse: ", data)
-    } catch (err) {
-      console.log("Error: ", err)
-    }
-
-  }
-
-  async function setGreeting() {
-    //Überprüung, ob etwas in das Feld geschrieben worden ist
-    if(!greeting) return
-    // Überprüfung ob Metamask installiert ist 
-    if(typeof window.ethereum !== 'undefined') {
-      await requestAccount()
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner()
-      const contract =new ethers.Contract(greeterAddress, Greeter.abi, signer)
-      const transaction = await contract.setGreeting(greeting)
-      setGreetingValue('')
-      await transaction.wait()
-      fetchGreeting()
-    }
-  }
-
-  <button onClick={fetchGreeting}>Fetch Greeting</button>
-        <button onClick={setGreeting}>Set Greeting</button>
-        <input onChange={e => setGreetingValue(e.target.value)} 
-        placeholder="Set greeting"
-        value={greeting} />
-*/
+  const ausAddress = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
 
 window.onload = function () {
   fetchA();
@@ -64,29 +29,31 @@ window.onload = function () {
 async function requestAccount() {
   await window.ethereum.request({ method: 'eth_requestAccounts'});
 }
+
 async function ausschreibungTeilnehmen(){
   const contractAdresse = ausschreibungsadresse;
   if(typeof window.ethereum !== 'undefined') {
     await requestAccount()
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     const signer = provider.getSigner()
-    const contract = new ethers.Contract(ausAddress, Ausschreibung.abi, signer);
-    const transaction = await contract.angebotEinreichen(contractAdresse,"dsfhndfsndf");
-    
-    const _provider = new ethers.providers.Web3Provider(window.ethereum);
-    const _signer = provider.getSigner()
-    const _contract = new ethers.Contract(contractAdresse, Teilnehmen.abi, _signer);
-    const _transaction = await contract.angeboteAnzeigen();
-    
-    console.log (_transaction);
-
+    const contract = new ethers.Contract(contractAdresse, Teilnehmen.abi, signer);
+    const transaction = await contract.angebotEinreichen(preisHash());
     setPreis('')
     setAusschreibung('')
     await transaction.wait()
     window.location.reload();
   }
-
 }
+
+function preisHash() {
+    let hash = sha256.create();
+    hash.update(preis);
+    hash.hex();
+    hash = sha256(preis);
+    alert(hash)
+    return hash;
+  }
+
   async function ausschreibungErstellen() {
     if(typeof window.ethereum !== 'undefined') {
       await requestAccount()
@@ -94,7 +61,7 @@ async function ausschreibungTeilnehmen(){
       const signer = provider.getSigner()
       const contract = new ethers.Contract(ausAddress, Ausschreibung.abi, signer);
       let fristEnde = kovertierungInUnix();
-      const transaction = await contract.erstellungAusschreibung(produktname, mge, fristEnde);
+      const transaction = await contract.erstellungAusschreibung(produktname, mge, fristEnde, email);
       setAuschreibungsende('')
       setProduktname('')
       setMenge('')
@@ -104,70 +71,86 @@ async function ausschreibungTeilnehmen(){
   }
 
   function kovertierungInUnix () {
-      let timestamp = Math.floor(Date.now() / 1000);
-      let milliseconds = ausschreibungsende * 24 * 60 * 60 * 1000;
-      return timestamp+milliseconds;
+    let date = new Date(Date.now() + ( (3600 * 1000 * 24)*ausschreibungsende))
+    let timestamp = Math.floor(date / 1000);
+    return timestamp;
   }
+
   async function fetchA() {
     // Überprüfung ob Metamask installiert ist oder ob der User es verwendet
     const provider = new ethers.providers.Web3Provider(window.ethereum)
     const contract = new ethers.Contract(ausAddress, Ausschreibung.abi, provider)
     let iterate = true;
     let i = 0;
-
+    const daten = []
     while (iterate) {
+        
         try {
-          //console.log(i);
           const data = await contract.getVal(i)
           const data1 = await contract.zieheArtikelName(i)
           const data2 = await contract.zieheMge(i)
           const data3 = await contract.zieheDauer(i)
-          
-          const daten = [data, data1, data2, data3]
+          daten.push(data, data1, data2, konvertierungDate(data3))
           
           let list = document.getElementsByTagName("p");
-          
           let tag = document.createElement("p");
           console.log('data: ', daten)
-          tag.innerHTML = daten;
+          tag.innerHTML = data+ "\t|\t" + data1+ "\t|\t" +data2+ "\t|\t" + konvertierungDate(data3);
           document.body.appendChild(tag); 
-          /*
-          let button = document.createElement("button");
-          let preis = document.createElement ("input");
-          preis.placeholder = "Preis";
-          preis.type = "number"
-          preis.className = "input-"+i;
-
-          button.innerHTML = "Teilnehmen";
-          button.className ="teilnehmen"+i;
-          document.body.appendChild(tag); 
-          document.body.appendChild(button);
-          document.body.appendChild(preis);
-                
-          if(list[i].innerHTML !== daten) {
-            //console.log("<p>"+ daten+"</p>")
-            console.log("<p>"+ daten+"</p>")
-            console.log(list[i])
-          }
-    
-          //var element = document.getElementById("new");
-          //element.appendChild(tag);
-          //console.log('data: ', data)
-          //document.getElementById("CA").innerHTML = daten;
-          */
         } catch (err) {
           console.log("Error: ", err)
           iterate = false;
         }
         i++;
-      }  
+      } 
     }
-  
-
-  function generiereAusschreibungsAnzeige() {
     
-  }
+    async function zieheFrist() {
+      const provider = new ethers.providers.Web3Provider(window.ethereum)
+      const contract = new ethers.Contract(ausschreibungsadresse, Teilnehmen.abi, provider)
+      let frist = (await contract.enddatumAnzeigen())
+      return frist;
+    }
+    async function zieheMail() {
+      const provider = new ethers.providers.Web3Provider(window.ethereum)
+      const contract = new ethers.Contract(ausschreibungsadresse, Teilnehmen.abi, provider)
+      let mail = (await contract.mailAnzeigen())
+      return mail;
+    }
 
+
+    function konvertierungDate(ende) {
+      const milliseconds = ende * 1000 
+      const dateObject = new Date(milliseconds)
+      const humanDateFormat = dateObject.toLocaleString() 
+      return humanDateFormat;
+    }
+
+    async function sendMail() {
+      let _frist= await zieheFrist()
+      let _email = await zieheMail()
+      _frist = konvertierungDate(_frist)
+      const templateParameter = {
+          Preis: preis,
+          Adresse: ausschreibungsadresse,
+          user_email: mail,
+          Frist: "" + _frist,
+          Ersteller: ""+ _email,
+      }
+      try{
+          ausschreibungTeilnehmen();
+          emailjs.send('service_f70zg1e', 'template_fpp51bb', templateParameter,'b0FZ3wiTe2Hn9CZy7' )
+          .then(function(response) {
+             console.log('SUCCESS!', response.status, response.text);
+          }, function(error) {
+             alert('FAILED...', error);
+          });
+      }
+      catch{
+        alert("Error: Teilnehmen nicht möglich")
+      }
+        
+      }
 
 
   return (
@@ -175,10 +158,7 @@ async function ausschreibungTeilnehmen(){
       <header className="App-header">
   
       <h3>Ausschreibungsprozess starten</h3>
-
-
-
-        <button onClick={ausschreibungErstellen}>Ausschreibung erstellen </button>
+      
         <input
           onChange={e => setAuschreibungsende(e.target.value)}
           placeholder="Auschreibungsdauer in Tage"
@@ -194,20 +174,42 @@ async function ausschreibungTeilnehmen(){
           placeholder="Menge"
           value={mge}
           />
+        <input
+          onChange={e => setEMail(e.target.value)}
+          placeholder="email"
+          value={email}
+          />
+          <button onClick={ausschreibungErstellen}>Ausschreibung Erstellen </button>
+          
       <h3>An Ausschreibung Teilnehmen</h3>
-      <button onClick={ausschreibungTeilnehmen}>Ausschreibung Teilnehmen </button>
+      
         <input
           onChange={e => setAusschreibung(e.target.value)}
           placeholder="Aussschreibungs Adresse"
           value={ausschreibungsadresse}
+          name="Adresse"
           />
         <input
           onChange={e => setPreis(e.target.value)}
           placeholder="Preis"
           value={preis}
+          name ="Preis"
           />
+        
+        <input
+          onChange={e => setMail(e.target.value)}
+          placeholder="E-Mail"
+          value={mail}
+          name="Mail"
+          />
+    
+        <button onClick={sendMail}>Ausschreibung Teilnehmen </button>
+      
+         
       </header>
     </div>
+    
+    
   );
 }
 

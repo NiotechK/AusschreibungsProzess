@@ -8,6 +8,7 @@ contract ausschreibung {
     uint256 angebotsZaehler;
     uint256 mge;
     string produkt = "";
+    string mail = "";
     //Ersteller des Smart Contracts (Anfrageersteller der Ausschreibung)
     address payable owner;
     
@@ -23,8 +24,9 @@ contract ausschreibung {
 
     event angebot_event(uint256 angebotsNummer, address lieferant);
 
-    constructor (string memory _produkt, uint _mge, uint _ausschreibungsEnde, address _owner) public {
+    constructor (string memory _produkt, uint _mge, uint _ausschreibungsEnde, address _owner, string memory _mail) public {
         produkt = _produkt;
+        mail = _mail;
         owner = payable(msg.sender);
         mge = _mge;
         ausschreibungsEnde = _ausschreibungsEnde;
@@ -34,7 +36,7 @@ contract ausschreibung {
     function angebotEinreichen(string memory angebotsHash) external payable {
         require(block.timestamp < ausschreibungsEnde);
         // Überprüfung, dass die selbe Adresse nicht mehr als ein Angbot einreicht
-        //require(indexBieter[msg.sender] == 0);
+        require(indexBieter[msg.sender] == 0);
         angebotsZaehler++;
         indexBieter[msg.sender] = angebotsZaehler;
         eingereichteAngebote[angebotsZaehler] = angebot(msg.sender, angebotsHash, block.timestamp);
@@ -43,6 +45,13 @@ contract ausschreibung {
 
     function angeboteAnzeigen () public view returns(uint256) {
         return angebotsZaehler;
+    }
+
+    function enddatumAnzeigen() public view returns(uint256) {
+        return ausschreibungsEnde;
+    }
+    function mailAnzeigen() public view returns(string memory) {
+        return mail;
     }
     // Kontraktdestruktor
     function destroy() public payable{
@@ -58,17 +67,19 @@ contract AusschreibungsErstellung {
         string artikel;
         uint256 ausschreibungsDauer;
         uint256 mge;
+        string mail;
     }
     mapping(ausschreibung => anfrage) public anfragenInformationen;
 
 
-    function erstellungAusschreibung(string memory artikel, uint256 mge, uint256 ausschreibungsDauer) public{
+    function erstellungAusschreibung(string memory artikel, uint256 mge, uint256 ausschreibungsDauer, string memory mail) public{
         // address(this) ist die Adresse des neuen Ausschreibung Kontrakts
-        ausschreibung neueAusschreibung = new ausschreibung(artikel, mge, ausschreibungsDauer, address(this));
+        ausschreibung neueAusschreibung = new ausschreibung(artikel, mge, ausschreibungsDauer, address(this), mail);
         ausschreibungen.push(neueAusschreibung);
         anfragenInformationen[neueAusschreibung].artikel = artikel;
         anfragenInformationen[neueAusschreibung].mge = mge;
         anfragenInformationen[neueAusschreibung].ausschreibungsDauer = ausschreibungsDauer;
+        anfragenInformationen[neueAusschreibung].mail = mail;
     }
 
      function angebotEinreichen(ausschreibung _ausschreibung, string memory hash) external {
