@@ -9,6 +9,8 @@ contract ausschreibung {
     uint256 mge;
     string produkt = "";
     string mail = "";
+    string einheit = "";
+    string titel = "";
     //Ersteller des Smart Contracts (Anfrageersteller der Ausschreibung)
     address payable owner;
     
@@ -24,9 +26,11 @@ contract ausschreibung {
 
     event angebot_event(uint256 angebotsNummer, address lieferant);
 
-    constructor (string memory _produkt, uint _mge, uint _ausschreibungsEnde, address _owner, string memory _mail) public {
+    constructor (string memory _titel, string memory _produkt, uint _mge, string memory _einheit, uint _ausschreibungsEnde, address _owner, string memory _mail) public {
+        titel = _titel;
         produkt = _produkt;
         mail = _mail;
+        einheit = _einheit;
         owner = payable(msg.sender);
         mge = _mge;
         ausschreibungsEnde = _ausschreibungsEnde;
@@ -53,6 +57,9 @@ contract ausschreibung {
     function mailAnzeigen() public view returns(string memory) {
         return mail;
     }
+     function titelAnzeigen() public view returns(string memory) {
+        return titel;
+    }
     // Kontraktdestruktor
     function destroy() public payable{
         require(msg.sender == owner);
@@ -64,20 +71,24 @@ contract AusschreibungsErstellung {
     // Speicherung der Kontraktadressen der Ausschreibungen, um später diese zu lesen
     ausschreibung [] public ausschreibungen;
     struct anfrage{
+        string titel;
         string artikel;
         uint256 ausschreibungsDauer;
         uint256 mge;
+        string einheit;
         string mail;
     }
     mapping(ausschreibung => anfrage) public anfragenInformationen;
 
 
-    function erstellungAusschreibung(string memory artikel, uint256 mge, uint256 ausschreibungsDauer, string memory mail) public{
+    function erstellungAusschreibung(string memory titel, string memory artikel, uint256 mge, string memory einheit, uint256 ausschreibungsDauer, string memory mail) public{
         // address(this) ist die Adresse des neuen Ausschreibung Kontrakts
-        ausschreibung neueAusschreibung = new ausschreibung(artikel, mge, ausschreibungsDauer, address(this), mail);
+        ausschreibung neueAusschreibung = new ausschreibung(titel, artikel, mge, einheit, ausschreibungsDauer, address(this), mail);
         ausschreibungen.push(neueAusschreibung);
+        anfragenInformationen[neueAusschreibung].titel = titel;
         anfragenInformationen[neueAusschreibung].artikel = artikel;
         anfragenInformationen[neueAusschreibung].mge = mge;
+        anfragenInformationen[neueAusschreibung].einheit = einheit;
         anfragenInformationen[neueAusschreibung].ausschreibungsDauer = ausschreibungsDauer;
         anfragenInformationen[neueAusschreibung].mail = mail;
     }
@@ -100,5 +111,13 @@ contract AusschreibungsErstellung {
 
     function zieheDauer(uint256 zahl) public view returns (uint256){
         return anfragenInformationen[ausschreibungen[zahl]].ausschreibungsDauer;
+    }
+
+    function zieheEinheit(uint256 zahl) public view returns (string memory){
+        return anfragenInformationen[ausschreibungen[zahl]].einheit;
+    }
+
+    function zieheTitel(uint256 zahl) public view returns (string memory){
+        return anfragenInformationen[ausschreibungen[zahl]].titel;
     }
 }
