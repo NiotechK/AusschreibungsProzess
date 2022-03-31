@@ -47,6 +47,10 @@ contract ausschreibung {
         emit angebot_event(angebotsZaehler, msg.sender);
     }
 
+    function aktuelleEOA () public view returns(address) {
+        return msg.sender;
+    }
+
     function angeboteAnzeigen () public view returns(uint256) {
         return angebotsZaehler;
     }
@@ -97,7 +101,7 @@ contract AusschreibungsErstellung {
         _ausschreibung.angebotEinreichen(hash);
     }
 
-    function getVal(uint256 zahl) public view returns (ausschreibung) {
+    function zieheAdresse(uint256 zahl) public view returns (ausschreibung) {
         return ausschreibungen[zahl];
     }
 

@@ -24,8 +24,9 @@ function App() {
   const [preis, setPreis] = useState('')
   const [ausschreibungsadresse, setAusschreibung] = useState('')
   //const greeterAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
-  const ausAddress = "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82"
-
+  let [alphaNumerischeZahl, setZahl] = useState()
+  const ausAddress = "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1"
+  
   const [waehrung, setWaehrung] = useState('');
 
 
@@ -39,7 +40,7 @@ function App() {
   };
  
 window.onload = function () {
-  fetchA();
+  zieheAusschreibungsdaten();
 }
 
 async function requestAccount() {
@@ -53,21 +54,29 @@ async function ausschreibungTeilnehmen(){
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     const signer = provider.getSigner()
     const contract = new ethers.Contract(contractAdresse, Teilnehmen.abi, signer);
-    const transaction = await contract.angebotEinreichen(preisHash());
+    const transaction = await contract.angebotEinreichen(await preisHash());
     setPreis('')
     setAusschreibung('')
     await transaction.wait()
+    //await versendeEmail()
     window.location.reload();
   }
 }
 
-function preisHash() {
+async function preisHash() {
     let hash = sha256.create();
-    let alphaNumerischeZahl = Math.random().toString(36).slice(2);
-    // transactionRequest.nonce  
-    hash.update(preis);
-    hash.hex();
-    hash = sha256(preis);
+    alphaNumerischeZahl = Math.random().toString(36).slice(2);
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum)
+    const contract = new ethers.Contract(ausschreibungsadresse, Teilnehmen.abi, provider)
+    let aktuelleAdresse = await contract.aktuelleEOA()
+    let nonce = await provider.getTransactionCount(aktuelleAdresse)
+   // hash.update(preis);
+    //hash.hex();
+    alert(preis)
+    alert(alphaNumerischeZahl)
+    alert(nonce)
+    hash = sha256(preis+alphaNumerischeZahl+nonce);
     alert(hash)
     return hash;
   }
@@ -95,7 +104,7 @@ function kovertierungInUnix () {
     return timestamp;
 }
 
-  async function fetchA() {
+async function zieheAusschreibungsdaten() {
     // Überprüfung ob Metamask installiert ist oder ob der User es verwendet
     const provider = new ethers.providers.Web3Provider(window.ethereum)
     const contract = new ethers.Contract(ausAddress, Ausschreibung.abi, provider)
@@ -106,13 +115,12 @@ function kovertierungInUnix () {
     while (iterate) {
         
         try {
-          
-          const data = await contract.getVal(i)
-          const data1 = await contract.zieheArtikelName(i)
-          const data2 = await contract.zieheMge(i)
-          const data3 = await contract.zieheDauer(i)
-          const data4 = await contract.zieheEinheit(i)
-          const data5 = await contract.zieheTitel(i)
+          const smartContractAdresse = await contract.zieheAdresse(i)
+          const artikelName = await contract.zieheArtikelName(i)
+          const mge = await contract.zieheMge(i)
+          const ausschreibungsDauer = await contract.zieheDauer(i)
+          const einheit = await contract.zieheEinheit(i)
+          const titel = await contract.zieheTitel(i)
           var table = document.getElementById("tabelle");
           var row = table.insertRow(1);
           var cell1 = row.insertCell(0);
@@ -121,14 +129,14 @@ function kovertierungInUnix () {
           var cell4 = row.insertCell(3);
           var cell5 = row.insertCell(4);
           var cell6 = row.insertCell(5);
-          cell1.innerHTML = data;
-          cell2.innerHTML = data1;
-          cell3.innerHTML = data2;
-          cell4.innerHTML = data4;
-          cell5.innerHTML = konvertierungDate(data3);
-          cell6.innerHTML = data5;
+          cell1.innerHTML = smartContractAdresse;
+          cell2.innerHTML = artikelName;
+          cell3.innerHTML = mge;
+          cell4.innerHTML = einheit;
+          cell5.innerHTML = konvertierungDate(ausschreibungsDauer);
+          cell6.innerHTML = titel;
         } catch (err) {
-          console.log("Error: ", err)
+          //alert("Error: ", err)
           iterate = false;
         }
         i++;
@@ -137,10 +145,13 @@ function kovertierungInUnix () {
 
     async function download(frist, mail, titel) {
       let filename = titel +".xml";
-      let text = "<ausschreibung> \n <kontraktAdresse>" + ausschreibungsadresse + "<\\kontraktAdresse> \n <preis>" + preis + "<\\preis>\n <waehrung>" + waehrung + "<\\waehrung> \n <frist>" + frist + "<\\frist>\n <email>" + mail + "<\\email> <\\ausschreibung>";
+      let text = "<ausschreibung>  \n <kontraktAdresse>" + ausschreibungsadresse + "<\\kontraktAdresse> \n <preis>" + preis + "<\\preis>\n <waehrung>" + waehrung + "<\\waehrung> \n <frist>" + frist + "<\\frist>\n <email>" + mail + "<\\email> \n <alphaNumerischeZahl>" + alphaNumerischeZahl + "<\\alphaNumerischeZahl> <\\ausschreibung>";
       let file = new File([text], {type: "text/xml"} )
       saveAs(file, filename);
-      return file;
+
+      const Buffer = require("buffer").Buffer;
+      let encodedAuth = new Buffer(text).toString("base64");
+      return encodedAuth;
       }
     
     async function zieheFrist() {
@@ -171,39 +182,43 @@ function kovertierungInUnix () {
       return humanDateFormat;
     }
 
-    async function sendMail() {
+    async function versendeEmail () {
       let _frist= await zieheFrist()
       let _email = await zieheMail()
       let _titel = await zieheTitel()
       _frist = konvertierungDate(_frist)
       let base64 = await download(_frist, _email, _titel);
-      //base64 = base64.toDataURL()
+      //alert(base64)
       const templateParameter = {
           Preis: preis,
           Adresse: ausschreibungsadresse,
           user_email: mail,
           Frist: "" + _frist,
           Ersteller: ""+ _email,
-          Waehrung: waehrung,
+          Waehrung: "" + waehrung,
+          Titel: "" +_titel,
           content: base64
       }
-      
       try {
-          ausschreibungTeilnehmen();
-          emailjs.send('service_f70zg1e', 'template_fpp51bb', templateParameter,'b0FZ3wiTe2Hn9CZy7' )
-          .then(function(response) {
-             console.log('Erfolgreich!', response.status, response.text);
-          }, function(error) {
-             alert('Fehler...', error);
-          });
-        }
-      catch{
-        alert("Error: Teilnehmen nicht möglich")
-        }             
+        emailjs.send('service_f70zg1e', 'template_fpp51bb', templateParameter,'b0FZ3wiTe2Hn9CZy7' )
+        .then(function(response) {
+           console.log('Erfolgreich!', response.status, response.text);
+        }, function(error) {
+           alert('Fehler...', error);
+        });
       }
+    catch{
+      alert("Error: Teilnehmen nicht möglich")
+      }   
+    }
 
-      function EmailValidation(mailadresse){
-        var mail_format = new RegExp('^[a-zA-Z0-9._:$!%-]+@[a-zA-Z0-9.-]+.[a-zA-Z]$')
+    async function teilnehmen(){
+      ausschreibungTeilnehmen()
+      versendeEmail()
+    }
+
+    function EmailValidation(mailadresse){
+        var mail_format = new RegExp('^[a-zA-Z0-9._:$!%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]$')
         let bool = true;
         if(mail_format.test(mailadresse)) {
         }
@@ -295,7 +310,7 @@ function kovertierungInUnix () {
           name="Mail"
           />
     
-        <button onClick={sendMail}>Ausschreibung teilnehmen </button>
+        <button onClick={teilnehmen}>Ausschreibung teilnehmen </button>
       </div>
          
       </header>
