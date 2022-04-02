@@ -4,11 +4,12 @@ import './App.css';
 import logo from './abas-logo-rgb.png'
 import { saveAs } from 'file-saver';
 import emailjs from 'emailjs-com'
-
+import Select from 'react-select';
 import Teilnehmen from './artifacts/contracts/AusschreibungKontrakte.sol/ausschreibung.json'
 import Ausschreibung from './artifacts/contracts/AusschreibungKontrakte.sol/AusschreibungsErstellung.json'
 import { sha256, sha224 } from 'js-sha256';
 import Greeter from './artifacts/contracts/Greeter.sol/Greeter.json'
+import { stringify } from 'querystring';
 
 
 function App() {
@@ -17,7 +18,7 @@ function App() {
   const [mge, setMenge] = useState ('')
   const [mail, setMail] = useState('')
   const [email, setEMail] = useState('')
-  const [einheit, setEinheit] = useState ('')
+  const [einheit, setEinheit] = useState ('Stück')
   const [id, setID] = useState('')
   const [angeboteinreichen, setAngebot] = useState('')
   const [greeting, setGreetingValue] = useState()
@@ -25,18 +26,27 @@ function App() {
   const [ausschreibungsadresse, setAusschreibung] = useState('')
   //const greeterAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
   let [alphaNumerischeZahl, setZahl] = useState()
-  const ausAddress = "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1"
+  const [waehrung, setWaehrung] = useState('Dollar');
+  const ausAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+
   
-  const [waehrung, setWaehrung] = useState('');
-
-
   const options = [
     { label: '$', waehrung: 'Dollar' },
     { label: '€', waehrung: 'Euro' },
   ];
+
+  const optionsEinheit = [
+    { label: 'Stck', einheit: 'Stueck' },
+    { label: 'Kg', einheit: 'Kilogramm' },
+  ];
+
+  const einheitEinstellen = (event) => {
+    setEinheit(event);
+  }
   const waehrungEinstellen= (event) => {
-    setWaehrung(event.target.value);
-    waehrung = event.target.value
+    let value = stringify(event).replace(/.*=/, "");
+    setWaehrung(event);
+    
   };
  
 window.onload = function () {
@@ -49,12 +59,12 @@ async function requestAccount() {
 
 async function ausschreibungTeilnehmen(){
   const contractAdresse = ausschreibungsadresse;
-  if((typeof window.ethereum !== 'undefined') && (EmailValidation(mail) === true)) {
+  if((typeof window.ethereum !== 'undefined') && (EmailValidierung(mail) === true)) {
     await requestAccount()
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     const signer = provider.getSigner()
     const contract = new ethers.Contract(contractAdresse, Teilnehmen.abi, signer);
-    const transaction = await contract.angebotEinreichen(await preisHash());
+    const transaction = await contract.angebotEinreichen(await angebothashErstellen());
     setPreis('')
     setAusschreibung('')
     await transaction.wait()
@@ -63,7 +73,7 @@ async function ausschreibungTeilnehmen(){
   }
 }
 
-async function preisHash() {
+async function angebothashErstellen() {
     let hash = sha256.create();
     alphaNumerischeZahl = Math.random().toString(36).slice(2);
 
@@ -83,13 +93,13 @@ async function preisHash() {
 
 async function ausschreibungErstellen() {
     
-  if((typeof window.ethereum !== 'undefined') && (EmailValidation(email) === true)) {
+  if((typeof window.ethereum !== 'undefined') && (EmailValidierung(email) === true)) {
     await requestAccount()
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     const signer = provider.getSigner()
     const contract = new ethers.Contract(ausAddress, Ausschreibung.abi, signer);
     let fristEnde = kovertierungInUnix();
-    const transaction = await contract.erstellungAusschreibung(id,produktname, mge, einheit, fristEnde, email);
+    const transaction = await contract.erstellungAusschreibung(id,produktname, mge, stringify(einheit).replace(/.*=/, ""), fristEnde, email);
     setAuschreibungsende('')
     setProduktname('')
     setMenge('')
@@ -110,7 +120,6 @@ async function zieheAusschreibungsdaten() {
     const contract = new ethers.Contract(ausAddress, Ausschreibung.abi, provider)
     let iterate = true;
     let i = 0;
-    const daten = []
     
     while (iterate) {
         
@@ -145,7 +154,7 @@ async function zieheAusschreibungsdaten() {
 
     async function download(frist, mail, titel) {
       let filename = titel +".xml";
-      let text = "<ausschreibung>  \n <kontraktAdresse>" + ausschreibungsadresse + "<\\kontraktAdresse> \n <preis>" + preis + "<\\preis>\n <waehrung>" + waehrung + "<\\waehrung> \n <frist>" + frist + "<\\frist>\n <email>" + mail + "<\\email> \n <alphaNumerischeZahl>" + alphaNumerischeZahl + "<\\alphaNumerischeZahl> <\\ausschreibung>";
+      let text = "<ausschreibung>  \n <kontraktAdresse>" + ausschreibungsadresse + "<\\kontraktAdresse> \n <preis>" + preis + "<\\preis>\n <waehrung>" + stringify(waehrung).replace(/.*=/, "") + "<\\waehrung> \n <frist>" + frist + "<\\frist>\n <email>" + mail + "<\\email> \n <alphaNumerischeZahl>" + alphaNumerischeZahl + "<\\alphaNumerischeZahl> <\\ausschreibung>";
       let file = new File([text], {type: "text/xml"} )
       saveAs(file, filename);
 
@@ -173,8 +182,6 @@ async function zieheAusschreibungsdaten() {
       return titel;
     }
 
-
-
     function konvertierungDate(ende) {
       const milliseconds = ende * 1000 
       const dateObject = new Date(milliseconds)
@@ -195,7 +202,7 @@ async function zieheAusschreibungsdaten() {
           user_email: mail,
           Frist: "" + _frist,
           Ersteller: ""+ _email,
-          Waehrung: "" + waehrung,
+          Waehrung: "" + stringify(waehrung).replace(/.*=/, ""),
           Titel: "" +_titel,
           content: base64
       }
@@ -217,7 +224,7 @@ async function zieheAusschreibungsdaten() {
       versendeEmail()
     }
 
-    function EmailValidation(mailadresse){
+    function EmailValidierung(mailadresse){
         var mail_format = new RegExp('^[a-zA-Z0-9._:$!%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]$')
         let bool = true;
         if(mail_format.test(mailadresse)) {
@@ -235,83 +242,98 @@ async function zieheAusschreibungsdaten() {
       <header className="App-header">
       
       <img src={logo} alt="Logo" />
-      <div>
-      <h3>Ausschreibungsprozess starten</h3>
-       <input
-          onChange={e => setID(e.target.value)}
-          placeholder="Ausschreibungstitel"
-          id="felder"
-          value={id}
-          />
-        <input
-          onChange={e => setAuschreibungsende(e.target.value)}
-          placeholder="Auschreibungsdauer in Tage"
-          type ="number"
-          id="felder"
-          value={ausschreibungsende}
-          />
-        <input
-          onChange={e => setProduktname(e.target.value)}
-          placeholder="Artikel"
-          id="felder"
-          value={produktname}
-          />
-        <input
-          onChange={e => setMenge(e.target.value)}
-          placeholder="Menge"
-          id="einheit"
-          type="number"
-          value={mge}
-          />
-        <input
-          onChange={e => setEinheit(e.target.value)}
-          placeholder="Einheit"
-          id="einheit"
-          type ="text"
-          value={einheit}
-          />
-        <input
-          onChange={e => setEMail(e.target.value)}
-          placeholder ="E-Mail"   
-          id="felder"      
-          value={email}
-          />
-          <button onClick={ausschreibungErstellen}>Ausschreibung erstellen </button>
-         
-      <h3>An Ausschreibung teilnehmen</h3>
       
-        <input
-          onChange={e => setAusschreibung(e.target.value)}
-          placeholder="Aussschreibungs Adresse"
-          value={ausschreibungsadresse}
-          id="felder" 
-          name="Adresse"
-          />
-        <input
-          onChange={e => setPreis(e.target.value)}
-          placeholder="Preis pro Einheit"
-          type ="number"
-          id="einheit"
-          value={preis}
-          name ="Preis"
-          />
-  
-      <select value={waehrung} onChange={waehrungEinstellen} id="einheit">
-          <option value="Dollar">$</option>
-          <option value="Euro">€</option>
-        </select>
+        <div class ="starten">
+          <h3>Ausschreibungsprozess starten</h3>
+          
+          <div class="row">
+              <label>Ausschreibungtitel</label>
+              <input
+                onChange={e => setID(e.target.value)}
+                value={id}
+                />
+            </div>
 
+            <div class="row">
+              <label>Auschreibungsdauer in Tage</label>
+              <input
+                onChange={e => setAuschreibungsende(e.target.value)}
+                type ="number"
+                value={ausschreibungsende}
+                />
+            </div>
+
+            <div class="row">
+              <label>Artikel</label>
+              <input
+                onChange={e => setProduktname(e.target.value)}
+                value={produktname}
+                />
+            </div>
+
+            <div class="row">
+              <label>Menge</label>
+              <input
+                onChange={e => setMenge(e.target.value)}
+                type="number"
+                value={mge}
+                />
+            </div>
+            <div class="row">
+              <label>Einheit</label>
+              <Select class="liste" placeholder="Einheit auswählen" options={optionsEinheit} onChange={einheitEinstellen} value={einheit} >
+              </Select>
+            
+            </div>
+            <div class="row">
+              <label>E-Mail</label>
+              <input
+                onChange={e => setEMail(e.target.value)}   
+                value={email}
+                />
+            </div>
+              <button onClick={ausschreibungErstellen}>Ausschreibung erstellen </button>
+          </div>
+        <div class ="teilnehmen">
+          <h3>An Ausschreibung teilnehmen</h3>
+          <div class="row">
+            <label>Ausschreibungs Adresse</label>
+            <input
+              onChange={e => setAusschreibung(e.target.value)}
+            
+              value={ausschreibungsadresse}
+              name="Adresse"
+              />
+          </div>
+
+          <div class="row">
+            <label>Preis pro Einheit</label>
+            <input
+              onChange={e => setPreis(e.target.value)}
+              type ="number"
+              value={preis}
+              name ="Preis"
+              />
+            <label> Waehrung </label>
+            <Select placeholder="Waehrung" options={options} value={waehrung} onChange={ e => waehrungEinstellen(e)}>
+              <option value="Dollar">$</option>
+              <option value="Euro">€</option>
+            </Select>
+            
+          </div>
+          
+          <div class="row">
+            <label>E-Mail</label>
+            <input
+              onChange={e => setMail(e.target.value)}
+              
+              value={mail}
+              name="Mail"
+              />
+          </div>
+            <button onClick={teilnehmen}>Ausschreibung teilnehmen </button>
+        </div>
       
-        <input
-          onChange={e => setMail(e.target.value)}
-          placeholder="E-Mail"
-          value={mail}
-          id="felder" 
-          name="Mail"
-          />
-    
-        <button onClick={teilnehmen}>Ausschreibung teilnehmen </button>
-      </div>
          
       </header>
       <table id="tabelle">
