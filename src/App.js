@@ -10,26 +10,32 @@ import Ausschreibung from './artifacts/contracts/AusschreibungKontrakte.sol/Auss
 import { sha256, sha224 } from 'js-sha256';
 import Greeter from './artifacts/contracts/Greeter.sol/Greeter.json'
 import { stringify } from 'querystring';
+import ReactDOM from 'react-dom';
+import { BrowserRouter, BrowserRouter as Routes, Route } from 'react-router-dom';
 
 
 function App() {
-  const [ausschreibungsende, setAuschreibungsende] = useState ('')
-  const [produktname, setProduktname] = useState ('')
-  const [mge, setMenge] = useState ('')
+  // http://localhost:3000/?titel=kupfer01&datum=30&artikel=Cu-DHP&menge=500&einheit=Kg&email=mueller@gmail.com
+  const queryParams = new URLSearchParams(window.location.search);
+  const [ausschreibungsende, setAuschreibungsende] = useState (queryParams.get('datum'))
+  const [produktname, setProduktname] = useState (queryParams.get('artikel'));
+  const [mge, setMenge] = useState (queryParams.get('menge'))
   const [mail, setMail] = useState('')
-  const [email, setEMail] = useState('')
-  const [einheit, setEinheit] = useState ('Stück')
-  const [id, setID] = useState('')
+  const [email, setEMail] = useState(queryParams.get('email'))
+  const [einheit, setEinheit] = useState (queryParams.get('einheit'))
+  const [id, setID] = useState(queryParams.get('titel'))
   const [angeboteinreichen, setAngebot] = useState('')
   const [greeting, setGreetingValue] = useState()
   const [preis, setPreis] = useState('')
   const [ausschreibungsadresse, setAusschreibung] = useState('')
-  //const greeterAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
   let [alphaNumerischeZahl, setZahl] = useState()
-  const [waehrung, setWaehrung] = useState('Dollar');
-  const ausAddress = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
-
+  const [waehrung, setWaehrung] = useState('');
+  const ausAddress = "0xba0f979Aac98467A1Fcd1BbC8cb1f808915594d6"
   
+  
+  const type = queryParams.get('type');
+  
+
   const options = [
     { label: '$', waehrung: 'Dollar' },
     { label: '€', waehrung: 'Euro' },
@@ -56,36 +62,98 @@ window.onload = function () {
 async function requestAccount() {
   await window.ethereum.request({ method: 'eth_requestAccounts'});
 }
+async function bestaetigungsNachricht() {
+  await alert("Transaktion erfolgreich ausgeführt")
+}
 
 async function ausschreibungTeilnehmen(){
   const contractAdresse = ausschreibungsadresse;
-  if((typeof window.ethereum !== 'undefined') && (EmailValidierung(mail) === true)) {
-    await requestAccount()
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    const signer = provider.getSigner()
-    const contract = new ethers.Contract(contractAdresse, Teilnehmen.abi, signer);
-    const transaction = await contract.angebotEinreichen(await angebothashErstellen());
-    setPreis('')
-    setAusschreibung('')
-    await transaction.wait()
-    //await versendeEmail()
-    window.location.reload();
+  if((typeof window.ethereum !== 'undefined')) {
+    if((felderBefuellt(1) === true) && (EmailValidierung(mail) === true) && (zahlenValidierung(preis) === true)){
+      await requestAccount()
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner()
+      const contract = new ethers.Contract(contractAdresse, Teilnehmen.abi, signer);
+      const transaction = await contract.angebotEinreichen(await angebothashErstellen());
+      setPreis('')
+      setAusschreibung('')
+      await transaction.wait()
+      //await bestaetigungsNachricht()
+      window.location.reload();
+    }
   }
+  else {
+    let antwort = alert("Bitte installieren Sie Metamask") 
+    if (!antwort) {
+    window.open("https://metamask.io/", '_blank')
+    }
+  }
+}
+
+function zahlenValidierung(zahl) {
+  let valid = true 
+  zahl = Number(zahl)
+  if((zahl < 0)) {
+    valid = false;
+    alert("Negativer Wert in Eingabe")
+  }
+  return valid;
+}
+
+function felderBefuellt(startenOrTeilnehmen) {
+  let befuellt = true;
+  if(startenOrTeilnehmen === 0) {
+    if(id === "") {
+      befuellt = false
+    }
+    else if(mge === "") {
+      befuellt = false
+    }
+    else if(produktname === "") {
+      befuellt = false
+    }
+    else if(einheit === "") {
+      befuellt = false
+    }
+    else if(ausschreibungsende === "") {
+      befuellt = false
+    }
+    else if(email === "") {
+      befuellt = false
+    }
+  }
+  else {
+    if(ausschreibungsadresse === "") {
+      befuellt = false
+    }
+    else if(preis === "") {
+      befuellt = false
+    }
+    else if(waehrung === "") {
+      befuellt = false
+    }
+    else if(mail === "") {
+      befuellt = false
+    }
+  }
+  if(befuellt === false) {
+    alert("Bitte alle Felder befüllen")
+  }
+  return befuellt;
 }
 
 async function angebothashErstellen() {
     let hash = sha256.create();
     alphaNumerischeZahl = Math.random().toString(36).slice(2);
-
     const provider = new ethers.providers.Web3Provider(window.ethereum)
     const contract = new ethers.Contract(ausschreibungsadresse, Teilnehmen.abi, provider)
     let aktuelleAdresse = await contract.aktuelleEOA()
     let nonce = await provider.getTransactionCount(aktuelleAdresse)
-   // hash.update(preis);
+    //hash.update(preis);
     //hash.hex();
-    alert(preis)
-    alert(alphaNumerischeZahl)
-    alert(nonce)
+    //alert(preis)
+    //alert(alphaNumerischeZahl)
+    //alert(nonce)
     hash = sha256(preis+alphaNumerischeZahl+nonce);
     alert(hash)
     return hash;
@@ -93,18 +161,27 @@ async function angebothashErstellen() {
 
 async function ausschreibungErstellen() {
     
-  if((typeof window.ethereum !== 'undefined') && (EmailValidierung(email) === true)) {
-    await requestAccount()
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    const signer = provider.getSigner()
-    const contract = new ethers.Contract(ausAddress, Ausschreibung.abi, signer);
-    let fristEnde = kovertierungInUnix();
-    const transaction = await contract.erstellungAusschreibung(id,produktname, mge, stringify(einheit).replace(/.*=/, ""), fristEnde, email);
-    setAuschreibungsende('')
-    setProduktname('')
-    setMenge('')
-    await transaction.wait()
-    window.location.reload();
+  if((typeof window.ethereum !== 'undefined')) {
+    if((felderBefuellt(0) === true)  && (EmailValidierung(email) === true)  && (zahlenValidierung(mge) === true) && (zahlenValidierung(ausschreibungsende) === true)){
+      await requestAccount()
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner()
+      const contract = new ethers.Contract(ausAddress, Ausschreibung.abi, signer);
+      let fristEnde = kovertierungInUnix();
+      const transaction = await contract.erstellungAusschreibung(id,produktname, mge, stringify(einheit).replace(/.*=/, ""), fristEnde, email);
+      setAuschreibungsende('')
+      setProduktname('')
+      setMenge('')
+      await transaction.wait()
+      await bestaetigungsNachricht()
+      window.location.reload();
+    }
+    }
+    else {
+      var antwort = alert("Bitte installieren Sie Metamask") 
+      if (!antwort) {
+      window.open("https://metamask.io/", '_blank')
+      }
     }
   }
 
@@ -156,8 +233,7 @@ async function zieheAusschreibungsdaten() {
       let filename = titel +".xml";
       let text = "<ausschreibung>  \n <kontraktAdresse>" + ausschreibungsadresse + "<\\kontraktAdresse> \n <preis>" + preis + "<\\preis>\n <waehrung>" + stringify(waehrung).replace(/.*=/, "") + "<\\waehrung> \n <frist>" + frist + "<\\frist>\n <email>" + mail + "<\\email> \n <alphaNumerischeZahl>" + alphaNumerischeZahl + "<\\alphaNumerischeZahl> <\\ausschreibung>";
       let file = new File([text], {type: "text/xml"} )
-      saveAs(file, filename);
-
+      //saveAs(file, filename);
       const Buffer = require("buffer").Buffer;
       let encodedAuth = new Buffer(text).toString("base64");
       return encodedAuth;
@@ -230,19 +306,20 @@ async function zieheAusschreibungsdaten() {
         if(mail_format.test(mailadresse)) {
         }
         else {
-          alert("Email ungültig")
+          alert("E-Mail Syntax is ungültig")
           bool = false
         }
         return bool;
 
         }
+      
   return (
-    
     <div className="App">
+  
       <header className="App-header">
       
       <img src={logo} alt="Logo" />
-      
+     
         <div class ="starten">
           <h3>Ausschreibungsprozess starten</h3>
           
