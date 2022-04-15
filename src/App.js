@@ -8,6 +8,8 @@ import Select from 'react-select';
 import Teilnehmen from './artifacts/contracts/AusschreibungKontrakte.sol/ausschreibung.json'
 import Ausschreibung from './artifacts/contracts/AusschreibungKontrakte.sol/AusschreibungsErstellung.json'
 import { sha256, sha224 } from 'js-sha256';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import Greeter from './artifacts/contracts/Greeter.sol/Greeter.json'
 import { stringify } from 'querystring';
 import ReactDOM from 'react-dom';
@@ -30,9 +32,10 @@ function App() {
   const [ausschreibungsadresse, setAusschreibung] = useState('')
   let [alphaNumerischeZahl, setZahl] = useState()
   const [waehrung, setWaehrung] = useState('');
+  const [startDate, setStartDate] = useState(datumKonvertieren());
   const ausAddress = "0xba0f979Aac98467A1Fcd1BbC8cb1f808915594d6"
-  
-  
+  //const ausAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+  let load = document.createElement("div")
   const type = queryParams.get('type');
   
 
@@ -43,7 +46,7 @@ function App() {
 
   const optionsEinheit = [
     { label: 'Stck', einheit: 'Stueck' },
-    { label: 'Kg', einheit: 'Kilogramm' },
+    { label: 'Kg', einheit: 'Kg' },
   ];
 
   const einheitEinstellen = (event) => {
@@ -59,27 +62,49 @@ window.onload = function () {
   zieheAusschreibungsdaten();
 }
 
+function datumKonvertieren() {
+  let datum = queryParams.get('datum')
+  //alert(datum)
+  if(datum !== null) {
+    datum = new Date(Date.now() + ( (3600 * 1000 * 24)*datum))
+    //alert(datum)
+  }
+  return datum;
+}
+
 async function requestAccount() {
   await window.ethereum.request({ method: 'eth_requestAccounts'});
 }
-async function bestaetigungsNachricht() {
-  await alert("Transaktion erfolgreich ausgeführt")
-}
-
 async function ausschreibungTeilnehmen(){
   const contractAdresse = ausschreibungsadresse;
+  let transaktionErfolgreich = true
   if((typeof window.ethereum !== 'undefined')) {
     if((felderBefuellt(1) === true) && (EmailValidierung(mail) === true) && (zahlenValidierung(preis) === true)){
-      await requestAccount()
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner()
-      const contract = new ethers.Contract(contractAdresse, Teilnehmen.abi, signer);
-      const transaction = await contract.angebotEinreichen(await angebothashErstellen());
-      setPreis('')
-      setAusschreibung('')
-      await transaction.wait()
+      try{
+        await requestAccount()
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner()
+        const contract = new ethers.Contract(contractAdresse, Teilnehmen.abi, signer);
+        const transaction = await contract.angebotEinreichen(await angebothashErstellen());
+        let btn = document.getElementById("btn2");
+        load.classList.add("loader")
+        btn.appendChild(load)
+        await transaction.wait()
+        btn.removeChild(load)
+        let antwort = alert("Transaktion ist ausgeführt")
+        if (!antwort) {
+        window.open("https://ropsten.etherscan.io/address/"+ contractAdresse + "#events", '_blank')
+        }
+        setPreis('')
+        setAusschreibung('')
+        setWaehrung('')
+        setMail('')
+      }
+      catch(err){
+        alert("Fehler bei Transaktion")
+        transaktionErfolgreich = false
+      }
       //await bestaetigungsNachricht()
-      window.location.reload();
     }
   }
   else {
@@ -88,6 +113,7 @@ async function ausschreibungTeilnehmen(){
     window.open("https://metamask.io/", '_blank')
     }
   }
+  return transaktionErfolgreich
 }
 
 function zahlenValidierung(zahl) {
@@ -112,10 +138,10 @@ function felderBefuellt(startenOrTeilnehmen) {
     else if(produktname === "") {
       befuellt = false
     }
-    else if(einheit === "") {
+    else if(einheit === "" || einheit === null  ) {
       befuellt = false
     }
-    else if(ausschreibungsende === "") {
+    else if(startDate === "") {
       befuellt = false
     }
     else if(email === "") {
@@ -151,11 +177,8 @@ async function angebothashErstellen() {
     let nonce = await provider.getTransactionCount(aktuelleAdresse)
     //hash.update(preis);
     //hash.hex();
-    //alert(preis)
-    //alert(alphaNumerischeZahl)
-    //alert(nonce)
     hash = sha256(preis+alphaNumerischeZahl+nonce);
-    alert(hash)
+    //alert(hash)
     return hash;
   }
 
@@ -163,18 +186,34 @@ async function ausschreibungErstellen() {
     
   if((typeof window.ethereum !== 'undefined')) {
     if((felderBefuellt(0) === true)  && (EmailValidierung(email) === true)  && (zahlenValidierung(mge) === true) && (zahlenValidierung(ausschreibungsende) === true)){
-      await requestAccount()
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner()
-      const contract = new ethers.Contract(ausAddress, Ausschreibung.abi, signer);
-      let fristEnde = kovertierungInUnix();
-      const transaction = await contract.erstellungAusschreibung(id,produktname, mge, stringify(einheit).replace(/.*=/, ""), fristEnde, email);
-      setAuschreibungsende('')
-      setProduktname('')
-      setMenge('')
-      await transaction.wait()
-      await bestaetigungsNachricht()
-      window.location.reload();
+      try{  
+        await requestAccount()
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner()
+        const contract = new ethers.Contract(ausAddress, Ausschreibung.abi, signer);
+        let btn = document.getElementById("btn1");
+        let fristEnde = kovertierungInUnix();
+        let einheitmge = queryParams.get('einheit')
+        if(einheitmge === null) {
+          einheitmge = stringify(einheit).replace(/.*=/, "")
+        }
+        const transaction = await contract.erstellungAusschreibung(id,produktname, mge, einheitmge, fristEnde, email);
+        load.classList.add("loader")
+        btn.appendChild(load)
+        await transaction.wait()
+        btn.removeChild(load)
+        setAuschreibungsende('')
+        setProduktname('')
+        setMenge('')
+        setEMail('')
+        setStartDate('')
+        setID('')
+        alert("Transaktion ausgeführt")
+      }
+      catch(err) {
+        alert("Fehler bei der Transaktion")
+      }
+      window.location = window.location.href.split("?")[0];
     }
     }
     else {
@@ -186,8 +225,9 @@ async function ausschreibungErstellen() {
   }
 
 function kovertierungInUnix () {
-    let date = new Date(Date.now() + ( (3600 * 1000 * 24)*ausschreibungsende))
-    let timestamp = Math.floor(date / 1000);
+    //let date = new Date(Date.now() + ( (3600 * 1000 * 24)*ausschreibungsende))
+    //alert(startDate)
+    let timestamp = Math.floor(startDate / 1000);
     return timestamp;
 }
 
@@ -209,13 +249,15 @@ async function zieheAusschreibungsdaten() {
           const titel = await contract.zieheTitel(i)
           var table = document.getElementById("tabelle");
           var row = table.insertRow(1);
+          let btn = document.createElement("button")
+          
           var cell1 = row.insertCell(0);
           var cell2 = row.insertCell(1);
           var cell3 = row.insertCell(2);
           var cell4 = row.insertCell(3);
           var cell5 = row.insertCell(4);
           var cell6 = row.insertCell(5);
-          cell1.innerHTML = smartContractAdresse;
+          cell1.innerHTML = '<a title="Zeige Smart Contract auf Etherscan.io" target="_blank" href = "https://ropsten.etherscan.io/address/' + smartContractAdresse + '"">' + smartContractAdresse +'</a>';
           cell2.innerHTML = artikelName;
           cell3.innerHTML = mge;
           cell4.innerHTML = einheit;
@@ -229,9 +271,9 @@ async function zieheAusschreibungsdaten() {
       } 
     }
 
-    async function download(frist, mail, titel) {
+    async function download(frist, mail, titel, tnonce) {
       let filename = titel +".xml";
-      let text = "<ausschreibung>  \n <kontraktAdresse>" + ausschreibungsadresse + "<\\kontraktAdresse> \n <preis>" + preis + "<\\preis>\n <waehrung>" + stringify(waehrung).replace(/.*=/, "") + "<\\waehrung> \n <frist>" + frist + "<\\frist>\n <email>" + mail + "<\\email> \n <alphaNumerischeZahl>" + alphaNumerischeZahl + "<\\alphaNumerischeZahl> <\\ausschreibung>";
+      let text = "<ausschreibung>  \n <kontraktAdresse>" + ausschreibungsadresse + "<\\kontraktAdresse> \n <preis>" + preis + "<\\preis>\n <nonce>" + tnonce + "<\\nonce>\n <waehrung>" + stringify(waehrung).replace(/.*=/, "") + "<\\waehrung> \n <frist>" + frist + "<\\frist>\n <email>" + mail + "<\\email> \n <alphaNumerischeZahl>" + alphaNumerischeZahl + "<\\alphaNumerischeZahl> <\\ausschreibung>";
       let file = new File([text], {type: "text/xml"} )
       //saveAs(file, filename);
       const Buffer = require("buffer").Buffer;
@@ -257,6 +299,13 @@ async function zieheAusschreibungsdaten() {
       let titel = (await contract.titelAnzeigen())
       return titel;
     }
+    async function zieheNonce() {
+      const provider = new ethers.providers.Web3Provider(window.ethereum)
+      const contract = new ethers.Contract(ausschreibungsadresse, Teilnehmen.abi, provider)
+      let aktuelleAdresse = await contract.aktuelleEOA()
+      let nonce = await provider.getTransactionCount(aktuelleAdresse)
+      return nonce;
+    }
 
     function konvertierungDate(ende) {
       const milliseconds = ende * 1000 
@@ -269,8 +318,9 @@ async function zieheAusschreibungsdaten() {
       let _frist= await zieheFrist()
       let _email = await zieheMail()
       let _titel = await zieheTitel()
+      let _nonce = await zieheNonce()
       _frist = konvertierungDate(_frist)
-      let base64 = await download(_frist, _email, _titel);
+      let base64 = await download(_frist, _email, _titel, _nonce);
       //alert(base64)
       const templateParameter = {
           Preis: preis,
@@ -290,14 +340,15 @@ async function zieheAusschreibungsdaten() {
            alert('Fehler...', error);
         });
       }
-    catch{
-      alert("Error: Teilnehmen nicht möglich")
+      catch{
+        alert("Error: Teilnehmen nicht möglich")
       }   
     }
 
     async function teilnehmen(){
-      ausschreibungTeilnehmen()
-      versendeEmail()
+      if(await ausschreibungTeilnehmen() === true) {
+        versendeEmail()
+      }
     }
 
     function EmailValidierung(mailadresse){
@@ -332,12 +383,8 @@ async function zieheAusschreibungsdaten() {
             </div>
 
             <div class="row">
-              <label>Auschreibungsdauer in Tage</label>
-              <input
-                onChange={e => setAuschreibungsende(e.target.value)}
-                type ="number"
-                value={ausschreibungsende}
-                />
+              <label>Auschreibungsende</label>
+              <DatePicker selected={startDate} showTimeSelect timeFormat="HH:mm" timeIntervals={15} onChange={(date) => setStartDate(date)} dateFormat="MMMM d, yyyy h:mm aa"/>
             </div>
 
             <div class="row">
@@ -358,7 +405,7 @@ async function zieheAusschreibungsdaten() {
             </div>
             <div class="row">
               <label>Einheit</label>
-              <Select class="liste" placeholder="Einheit auswählen" options={optionsEinheit} onChange={einheitEinstellen} value={einheit} >
+              <Select class="liste" placeholder={queryParams.get('einheit')} options={optionsEinheit} onChange={einheitEinstellen} value={einheit} >
               </Select>
             
             </div>
@@ -369,7 +416,7 @@ async function zieheAusschreibungsdaten() {
                 value={email}
                 />
             </div>
-              <button onClick={ausschreibungErstellen}>Ausschreibung erstellen </button>
+              <button id="btn1" onClick={ausschreibungErstellen}>Ausschreibung erstellen </button>
           </div>
         <div class ="teilnehmen">
           <h3>An Ausschreibung teilnehmen</h3>
@@ -408,7 +455,7 @@ async function zieheAusschreibungsdaten() {
               name="Mail"
               />
           </div>
-            <button onClick={teilnehmen}>Ausschreibung teilnehmen </button>
+            <button id="btn2" onClick={teilnehmen}>Ausschreibung teilnehmen </button>
         </div>
       
          
