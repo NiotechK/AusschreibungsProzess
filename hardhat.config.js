@@ -25,6 +25,10 @@ module.exports = {
   networks: {
     hardhat: {
       chainId: 1337
+    },
+    ropsten: {
+      url: "https://speedy-nodes-nyc.moralis.io/663969f0311b3e87e6ed815f/eth/ropsten",
+      accounts: [`0x${process.env.PRIVATE_KEY}`]
     }
   }
 };

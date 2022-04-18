@@ -33,8 +33,8 @@ function App() {
   let [alphaNumerischeZahl, setZahl] = useState()
   const [waehrung, setWaehrung] = useState('');
   const [startDate, setStartDate] = useState(datumKonvertieren());
-  const ausAddress = "0xba0f979Aac98467A1Fcd1BbC8cb1f808915594d6"
-  //const ausAddress = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+  //const ausAddress = "0x2012AD20D54B5C191582210C1167C68217113ef5"
+  const ausAddress = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
   let load = document.createElement("div")
   const type = queryParams.get('type');
   
@@ -208,12 +208,13 @@ async function ausschreibungErstellen() {
         setEMail('')
         setStartDate('')
         setID('')
-        alert("Transaktion ausgeführt")
+        alert("Transaktion ausgeführt \n ")
+        window.location = window.location.href.split("?")[0];
       }
       catch(err) {
         alert("Fehler bei der Transaktion")
       }
-      window.location = window.location.href.split("?")[0];
+      
     }
     }
     else {
@@ -352,9 +353,9 @@ async function zieheAusschreibungsdaten() {
     }
 
     function EmailValidierung(mailadresse){
-        var mail_format = new RegExp('^[a-zA-Z0-9._:$!%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]$')
+        var mail_format = new RegExp("^[a-zA-Z0-9._:$!%-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]$")
         let bool = true;
-        if(mail_format.test(mailadresse)) {
+        if(String(mailadresse).toLowerCase().match(/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/)) {
         }
         else {
           alert("E-Mail Syntax is ungültig")

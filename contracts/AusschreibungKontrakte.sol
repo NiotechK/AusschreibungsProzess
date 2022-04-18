@@ -24,7 +24,7 @@ contract ausschreibung {
     mapping (address => uint) public indexBieter;
     mapping (uint => angebot) public eingereichteAngebote;
 
-    event angebot_event(uint256 angebotsNummer, address lieferant);
+    event angebot_event(uint256 angebotsNummer, address lieferant, string angebotsHash);
 
     constructor (string memory _titel, string memory _produkt, uint _mge, string memory _einheit, uint _ausschreibungsEnde, address _owner, string memory _mail) public {
         titel = _titel;
@@ -44,7 +44,7 @@ contract ausschreibung {
         angebotsZaehler++;
         indexBieter[msg.sender] = angebotsZaehler;
         eingereichteAngebote[angebotsZaehler] = angebot(msg.sender, angebotsHash, block.timestamp);
-        emit angebot_event(angebotsZaehler, msg.sender);
+        emit angebot_event(angebotsZaehler, msg.sender, angebotsHash);
     }
 
     function aktuelleEOA () public view returns(address) {
